@@ -57,6 +57,7 @@ public:
      * Client-side wait on the Fence.
      *
      * Blocks the current thread until the Fence signals.
+     * On some platforms, some system events might be processed during the wait.
      *
      * @param mode      Whether the command stream is flushed before waiting or not.
      * @param timeout   Wait time out. Using a \p timeout of 0 is a way to query the state of the fence.

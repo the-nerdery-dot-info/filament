@@ -344,6 +344,9 @@ public:
      * @note
      * All calls to render() must happen *after* beginFrame().
      *
+     * On some platforms, system events might be processed here, since the frame skipper
+     * potentially waits on a fence.
+     *
      * @see
      * endFrame(), backend::PresentCallable, backend::FrameFinishedCallback
      */

@@ -126,26 +126,47 @@ public:
 
     Bookmark getCurrentBookmark() const override {
         Bookmark bookmark;
-        bookmark.manipulator = this;
         const vec3 pivotToEye = Base::mEye - mPivot;
         const FLOAT d = length(pivotToEye);
         const FLOAT x = pivotToEye.x / d;
         const FLOAT y = pivotToEye.y / d;
         const FLOAT z = pivotToEye.z / d;
+
         bookmark.orbit.phi = asin(y);
         bookmark.orbit.theta = atan2(x, z);
         bookmark.orbit.distance = mFlipped ? -d : d;
         bookmark.orbit.pivot = mPivot;
+
+        const FLOAT fov = Base::mProps.fovDegrees * math::F_PI / 180.0;
+        const FLOAT halfExtent = d * tan(fov / 2.0);
+
+        vec3 center = mPivot - Base::mProps.targetPosition;
+        center.z = 0; // TODO: project
+
+        bookmark.map.extent = halfExtent * 2;
+        bookmark.map.center.x = center.x;
+        bookmark.map.center.y = center.y;
+
         return bookmark;
     }
 
     Bookmark getHomeBookmark() const override {
         Bookmark bookmark;
-        bookmark.manipulator = this;
         bookmark.orbit.phi = FLOAT(0);
         bookmark.orbit.theta = FLOAT(0);
         bookmark.orbit.pivot = Base::mProps.targetPosition;
         bookmark.orbit.distance = distance(Base::mProps.targetPosition, Base::mProps.orbitHomePosition);
+
+        const FLOAT fov = Base::mProps.fovDegrees * math::F_PI / 180.0;
+        const FLOAT halfExtent = bookmark.orbit.distance * tan(fov / 2.0);
+
+        vec3 center = mPivot - Base::mProps.targetPosition;
+        center.z = 0; // TODO: project
+
+        bookmark.map.extent = halfExtent * 2;
+        bookmark.map.center.x = center.x;
+        bookmark.map.center.y = center.y;
+
         return bookmark;
     }
 

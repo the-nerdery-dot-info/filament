@@ -28,7 +28,7 @@ template <typename FLOAT> class MapManipulator;
 template <typename FLOAT> class Manipulator;
 
 /**
- * Opaque handle to a viewing position and orientation (e.g. the "home" camera position).
+ * Opaque memento to a viewing position and orientation (e.g. the "home" camera position).
  *
  * This little struct is meant to be passed around by value and can be used to track camera
  * animation between waypoints. In map mode this implements Van Wijk interpolation.
@@ -51,11 +51,8 @@ private:
         FLOAT distance;
         filament::math::vec3<FLOAT> pivot;
     };
-    const Manipulator<FLOAT>* manipulator;
-    union {
-        MapParams map;
-        OrbitParams orbit;
-    };
+    MapParams map;
+    OrbitParams orbit;
     friend class OrbitManipulator<FLOAT>;
     friend class MapManipulator<FLOAT>;
 };

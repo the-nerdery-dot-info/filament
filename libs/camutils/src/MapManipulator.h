@@ -117,10 +117,18 @@ public:
         bookmark.map.extent = halfExtent * 2.0;
         bookmark.map.center.x = dot(uvec, targetPosition);
         bookmark.map.center.y = dot(vvec, targetPosition);
+
+        bookmark.orbit.theta = 0;
+        bookmark.orbit.phi = 0;
+        bookmark.orbit.pivot = Base::mTarget;
+        bookmark.orbit.pivot.z = 0; // TODO: project to groundPlane
+        bookmark.orbit.distance = halfExtent / tan(fov / 2.0);
+
         return bookmark;
     }
 
     Bookmark getHomeBookmark() const override {
+        const FLOAT fov = Base::mProps.fovDegrees * math::F_PI / 180.0;
         const FLOAT width = Base::mProps.mapExtent.x;
         const FLOAT height = Base::mProps.mapExtent.y;
         const bool horiz = Base::mProps.fovDirection == Fov::HORIZONTAL;
@@ -130,6 +138,11 @@ public:
         bookmark.map.center.x = 0;
         bookmark.map.center.y = 0;
 
+        bookmark.orbit.theta = 0;
+        bookmark.orbit.phi = 0;
+        bookmark.orbit.pivot = Base::mTarget;
+        bookmark.orbit.distance = 0.5 * bookmark.map.extent / tan(fov / 2.0);
+
         // TODO: Add optional boundary constraints here.
 
         return bookmark;
@@ -137,17 +150,13 @@ public:
 
     void jumpToBookmark(const Bookmark& bookmark) override {
         const vec3 targetToEye = Base::mProps.groundPlane.xyz;
-
         const FLOAT halfExtent = bookmark.map.extent / 2.0;
         const FLOAT fov = Base::mProps.fovDegrees * math::F_PI / 180.0;
         const FLOAT distance = halfExtent / tan(fov / 2.0);
-
         vec3 uvec = cross(Base::mProps.upVector, targetToEye);
         vec3 vvec = cross(targetToEye, uvec);
-
         uvec = normalize(uvec) * bookmark.map.center.x;
         vvec = normalize(vvec) * bookmark.map.center.y;
-
         Base::mTarget = Base::mProps.targetPosition + uvec + vvec;
         Base::mEye = Base::mTarget + distance * targetToEye;
     }

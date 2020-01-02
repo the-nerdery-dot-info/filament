@@ -16,7 +16,19 @@
 
 package com.google.android.filament.gltfio;
 
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.support.annotation.Size;
+
+/**
+ * Helper that enables camera interaction similar to sketchfab or Google Maps.
+ *
+ * Clients notify the camera manipulator of various mouse or touch events, then periodically call
+ * its getLookAt() method so that they can adjust their camera(s). Two modes are supported: ORBIT
+ * and MAP. To construct a manipulator instance, the desired mode is passed into the create method.
+ */
 public class Manipulator {
+    private long mNativeObject;
     private Mode mMode;
 
     public enum Mode { ORBIT, MAP };
@@ -24,36 +36,49 @@ public class Manipulator {
     public enum Fov { VERTICAL, HORIZONTAL };
 
     /**
-     * User-controlled properties that are never computed or changed by the manipulator.
+     * Construction properties that are never changed by the manipulator.
+     *
+     * Clients are required to specify a viewport but all other properties have reasonable defaults.
+     * Any properties that are mutable have corresponding set methods in Manipulator.
      */
-    public class Properties {
-        public int viewport[] = new int[2];           //! Width and height of the viewing area
-        public float targetPosition[] = new float[3]; //! World-space position of interest, defaults to (0,0,0)
-        public float upVector[] = new float[3];       //! Orientation for the home position, defaults to (0,1,0)
-        public float zoomSpeed;                       //! Multiplied with scroll delta, defaults to 0.01
+    public class Config {
+        public int viewport[] = new int[] {0, 0};              //! Width and height of the viewing area
+        public float targetPosition[] = new float[] {0, 0, 0}; //! World-space position of interest
+        public float upVector[] = new float[] {0, 1, 0};       //! Orientation for the home position
+        public float zoomSpeed = 0.01f;                        //! Multiplied with scroll delta
 
         // Orbit mode properties
-        public float orbitHomePosition[] = new float[3]; //! Initial eye position in world space, defaults to (0,0,1)
-        public float orbitSpeed[] = new float[2];        //! Multiplied with viewport delta, defaults to 0.01
+        public float orbitHomePosition[] = new float[] {0, 0, 1}; //! Initial eye position in world space
+        public float orbitSpeed[] = new float[] {0.01f, 0.01f};   //! Multiplied with viewport delta
 
         // Map mode properties
-        public Fov fovDirection;                   //! The FOV axis that's held constant when the viewport changes
-        public float fovDegrees;                   //! The full FOV (not the half-angle)
-        public float farPlane;                     //! The distance to the far plane
-        public float mapExtent[] = new float[2];   //! The ground plane size used to compute the home position
-        public float mapMinDistance;               //! Constrains the zoom-in level
+        public Fov fovDirection = Fov.VERTICAL;           //! The FOV axis that's held constant when the viewport changes
+        public float fovDegrees = 33;                     //! The full FOV (not the half-angle)
+        public float farPlane = 5000;                     //! The distance to the far plane
+        public float mapExtent[] = new float[]{512, 512}; //! The ground plane size used to compute the home position
+        public float mapMinDistance = 0.0f;               //! Constrains the zoom-in level
 
         // Raycast properties
-        public float groundPlane[] = new float[4]; //! Plane equation used as a raycast fallback
-
-        // TODO: add raycastCallback
+        public float groundPlane[] = new float[] {0, 0, 1, 0};
     };
 
     /**
      * Creates a new camera manipulator, either ORBIT or MAP.
+     *
+     * Call destroy() when done.
      */
-    public static Manipulator create(Mode mode, Properties props) {
+    public static Manipulator create(Mode mode, Config props) {
         return null;
+    }
+
+    @Override
+    public void finalize() {
+        try {
+            super.finalize();
+        } catch (Throwable t) { // Ignore
+        } finally {
+            // nDestroyManipulator(mNativeObject);
+        }
     }
 
     /**
@@ -62,22 +87,22 @@ public class Manipulator {
     public Mode getMode() { return mMode; }
 
     /**
-     * Changes the state of the manipulator, for example the point of interest, viewport size,
-     * or the position of the ground plane.
-     *
-     * \see Properties
+     * Sets the viewport dimensions. The manipulator uses this processing grab events and raycasts.
      */
-    public void setProperties(Properties props) {}
+    void setViewport(int width, int height) {}
 
     /**
-     * Retrieves all directly-settable state of the manipulator.
-     *
-     * see Properties
+     * Sets the world-space position of interest for the "home" bookmark.
      */
-    public Properties getProperties() {}
+    void setTargetPosition(float x, float y, float z) {}
 
     /**
-     * Gets the current orthonormal basis; this is usually called once per frame.
+     * Sets the ORBIT eye position in world space for the "home" bookmark.
+     */
+    void setOrbitHomePosition(float x, float y, float z) {}
+
+    /**
+     * Gets the current orthonormal basis. This is usually called once per frame.
      */
     public void getLookAt(
             @NonNull @Size(min = 3) float[] eyePosition,
@@ -85,8 +110,7 @@ public class Manipulator {
             @NonNull @Size(min = 3) float[] upward) {}
 
     /**
-     * Given a viewport coordinate, picks a point in the ground plane, or in the actual scene if the
-     * raycast callback was provided.
+     * Given a viewport coordinate, picks a point in the ground plane.
      */
     @Nullable @Size(min = 3)
     public float[] raycast(int x, int y) {

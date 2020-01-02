@@ -28,8 +28,6 @@
 namespace filament {
 namespace camutils {
 
-enum class Mode { ORBIT, MAP };
-
 enum class Fov { VERTICAL, HORIZONTAL };
 
 /**

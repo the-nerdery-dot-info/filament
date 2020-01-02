@@ -27,6 +27,8 @@ template <typename FLOAT> class OrbitManipulator;
 template <typename FLOAT> class MapManipulator;
 template <typename FLOAT> class Manipulator;
 
+enum class Mode { ORBIT, MAP };
+
 /**
  * Opaque memento to a viewing position and orientation (e.g. the "home" camera position).
  *
@@ -37,9 +39,18 @@ template <typename FLOAT> class Manipulator;
  */
 template <typename FLOAT>
 struct Bookmark {
-    static Bookmark<FLOAT> interpolateMap(Bookmark<FLOAT> a, Bookmark<FLOAT> b, double t);
-    static Bookmark<FLOAT> interpolateOrbit(Bookmark<FLOAT> a, Bookmark<FLOAT> b, double t);
-    static double durationMap(Bookmark<FLOAT> a, Bookmark<FLOAT> b);
+    /**
+     * Interpolates between two bookmarks. The t argument must be between 0 and 1 (inclusive), and
+     * the two endpoints must have the same mode (ORBIT or MAP).
+     */
+    static Bookmark<FLOAT> interpolate(Bookmark<FLOAT> a, Bookmark<FLOAT> b, double t);
+
+    /**
+     * Recommends a duration for animation between two MAP endpoints. The return value is a unitless
+     * multiplier.
+     */
+    static double duration(Bookmark<FLOAT> a, Bookmark<FLOAT> b);
+
 private:
     struct MapParams {
         FLOAT extent;
@@ -51,6 +62,7 @@ private:
         FLOAT distance;
         filament::math::vec3<FLOAT> pivot;
     };
+    Mode mode;
     MapParams map;
     OrbitParams orbit;
     friend class OrbitManipulator<FLOAT>;

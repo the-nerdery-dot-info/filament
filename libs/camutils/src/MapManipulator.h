@@ -113,6 +113,7 @@ public:
         const vec3 centerToTarget = targetPosition - Base::mProps.targetPosition;
 
         Bookmark bookmark;
+        bookmark.mode = Mode::MAP;
         bookmark.map.extent = halfExtent * 2.0;
         bookmark.map.center.x = dot(uvec, centerToTarget);
         bookmark.map.center.y = dot(vvec, centerToTarget);
@@ -134,6 +135,7 @@ public:
         const bool horiz = Base::mProps.fovDirection == Fov::HORIZONTAL;
 
         Bookmark bookmark;
+        bookmark.mode = Mode::MAP;
         bookmark.map.extent = horiz ? width : height;
         bookmark.map.center.x = 0;
         bookmark.map.center.y = 0;

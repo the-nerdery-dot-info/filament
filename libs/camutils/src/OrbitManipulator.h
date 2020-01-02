@@ -126,6 +126,7 @@ public:
 
     Bookmark getCurrentBookmark() const override {
         Bookmark bookmark;
+        bookmark.mode = Mode::ORBIT;
         const vec3 pivotToEye = Base::mEye - mPivot;
         const FLOAT d = length(pivotToEye);
         const FLOAT x = pivotToEye.x / d;
@@ -153,6 +154,7 @@ public:
 
     Bookmark getHomeBookmark() const override {
         Bookmark bookmark;
+        bookmark.mode = Mode::ORBIT;
         bookmark.orbit.phi = FLOAT(0);
         bookmark.orbit.theta = FLOAT(0);
         bookmark.orbit.pivot = Base::mProps.targetPosition;

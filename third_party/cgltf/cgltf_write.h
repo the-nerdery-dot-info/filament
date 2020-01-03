@@ -74,10 +74,6 @@ cgltf_size cgltf_write(const cgltf_options* options, char* buffer, cgltf_size si
 #define CGLTF_EXTENSION_FLAG_SPECULAR_GLOSSINESS (1 << 2)
 #define CGLTF_EXTENSION_FLAG_LIGHTS_PUNCTUAL     (1 << 3)
 
-#ifndef CGLTF_MAX_EXTRAS_LENGTH
-#define CGLTF_MAX_EXTRAS_LENGTH 256
-#endif
-
 typedef struct {
 	char* buffer;
 	size_t buffer_size;
@@ -92,12 +88,22 @@ typedef struct {
 	uint32_t extension_flags;
 } cgltf_write_context;
 
+#define CGLTF_MIN(a, b) (a < b ? a : b)
+
 #define CGLTF_SPRINTF(...) { \
 		context->tmp = snprintf ( context->cursor, context->remaining, __VA_ARGS__ ); \
 		context->chars_written += context->tmp; \
 		if (context->cursor) { \
 			context->cursor += context->tmp; \
 			context->remaining -= context->tmp; \
+		} }
+
+#define CGLTF_SNPRINTF(length, ...) { \
+		context->tmp = snprintf ( context->cursor, CGLTF_MIN(length + 1, context->remaining), __VA_ARGS__ ); \
+		context->chars_written += length; \
+		if (context->cursor) { \
+			context->cursor += length; \
+			context->remaining -= length; \
 		} }
 
 #define CGLTF_WRITE_IDXPROP(label, val, start) if (val) { \
@@ -181,12 +187,10 @@ static void cgltf_write_extras(cgltf_write_context* context, const cgltf_extras*
 	cgltf_size length = extras->end_offset - extras->start_offset;
 	if (length > 0 && context->data->file_data)
 	{
-		char null_terminated[CGLTF_MAX_EXTRAS_LENGTH + 1] = {0};
 		char* json_string = ((char*) context->data->file_data) + extras->start_offset;
-		cgltf_size n = CGLTF_MAX_EXTRAS_LENGTH < length ? CGLTF_MAX_EXTRAS_LENGTH : length;
-		strncpy(null_terminated, json_string, n);
 		cgltf_write_indent(context);
-		CGLTF_SPRINTF("\"extras\": %s", null_terminated);
+		CGLTF_SPRINTF("%s", "\"extras\": ");
+		CGLTF_SNPRINTF(length, "%s", json_string);
 		context->needs_comma = 1;
 	}
 }

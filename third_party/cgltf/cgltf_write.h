@@ -1,7 +1,7 @@
 /**
  * cgltf_write - a single-file glTF 2.0 writer written in C99.
  *
- * Version: 1.3
+ * Version: 1.4
  *
  * Website: https://github.com/jkuhlmann/cgltf
  *
@@ -23,6 +23,11 @@
  * buffer. Returns the number of bytes written to `buffer`, including a null
  * terminator. If buffer is null, returns the number of bytes that would have
  * been written. `data` is not deallocated.
+ *
+ * To write custom JSON into the `extras` field, aggregate all the custom JSON
+ * into a single buffer, then set `file_data` to this buffer. By supplying
+ * start_offset and end_offset values for various objects, you can select a
+ * range of characters within the aggregated buffer.
  */
 #ifndef CGLTF_WRITE_H_INCLUDED__
 #define CGLTF_WRITE_H_INCLUDED__
@@ -69,6 +74,10 @@ cgltf_size cgltf_write(const cgltf_options* options, char* buffer, cgltf_size si
 #define CGLTF_EXTENSION_FLAG_SPECULAR_GLOSSINESS (1 << 2)
 #define CGLTF_EXTENSION_FLAG_LIGHTS_PUNCTUAL     (1 << 3)
 
+#ifndef CGLTF_MAX_EXTRAS_LENGTH
+#define CGLTF_MAX_EXTRAS_LENGTH 256
+#endif
+
 typedef struct {
 	char* buffer;
 	size_t buffer_size;
@@ -83,8 +92,8 @@ typedef struct {
 	uint32_t extension_flags;
 } cgltf_write_context;
 
-#define CGLTF_SPRINTF(fmt, ...) { \
-		context->tmp = snprintf ( context->cursor, context->remaining, fmt, ## __VA_ARGS__ ); \
+#define CGLTF_SPRINTF(...) { \
+		context->tmp = snprintf ( context->cursor, context->remaining, __VA_ARGS__ ); \
 		context->chars_written += context->tmp; \
 		if (context->cursor) { \
 			context->cursor += context->tmp; \
@@ -99,7 +108,7 @@ typedef struct {
 #define CGLTF_WRITE_IDXARRPROP(label, dim, vals, start) if (vals) { \
 		cgltf_write_indent(context); \
 		CGLTF_SPRINTF("\"%s\": [", label); \
-		for (int i = 0; i < dim; ++i) { \
+		for (int i = 0; i < (int)(dim); ++i) { \
 			int idx = (int) (vals[i] - start); \
 			if (i != 0) CGLTF_SPRINTF(","); \
 			CGLTF_SPRINTF(" %d", idx); \
@@ -116,6 +125,7 @@ typedef struct {
 			context->extension_flags |= CGLTF_EXTENSION_FLAG_TEXTURE_TRANSFORM; \
 			cgltf_write_texture_transform(context, &info.transform); \
 		} \
+		cgltf_write_extras(context, &info.extras); \
 		cgltf_write_line(context, "}"); }
 
 static void cgltf_write_indent(cgltf_write_context* context)
@@ -162,6 +172,21 @@ static void cgltf_write_strprop(cgltf_write_context* context, const char* label,
 	{
 		cgltf_write_indent(context);
 		CGLTF_SPRINTF("\"%s\": \"%s\"", label, val);
+		context->needs_comma = 1;
+	}
+}
+
+static void cgltf_write_extras(cgltf_write_context* context, const cgltf_extras* extras)
+{
+	cgltf_size length = extras->end_offset - extras->start_offset;
+	if (length > 0 && context->data->file_data)
+	{
+		char null_terminated[CGLTF_MAX_EXTRAS_LENGTH + 1] = {0};
+		char* json_string = ((char*) context->data->file_data) + extras->start_offset;
+		cgltf_size n = CGLTF_MAX_EXTRAS_LENGTH < length ? CGLTF_MAX_EXTRAS_LENGTH : length;
+		strncpy(null_terminated, json_string, n);
+		cgltf_write_indent(context);
+		CGLTF_SPRINTF("\"extras\": %s", null_terminated);
 		context->needs_comma = 1;
 	}
 }
@@ -343,6 +368,7 @@ static void cgltf_write_asset(cgltf_write_context* context, const cgltf_asset* a
 	cgltf_write_strprop(context, "generator", asset->generator);
 	cgltf_write_strprop(context, "version", asset->version);
 	cgltf_write_strprop(context, "min_version", asset->min_version);
+	cgltf_write_extras(context, &asset->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -374,6 +400,7 @@ static void cgltf_write_primitive(cgltf_write_context* context, const cgltf_prim
 		}
 		cgltf_write_line(context, "]");
 	}
+	cgltf_write_extras(context, &prim->extras);
 }
 
 static void cgltf_write_mesh(cgltf_write_context* context, const cgltf_mesh* mesh)
@@ -394,7 +421,7 @@ static void cgltf_write_mesh(cgltf_write_context* context, const cgltf_mesh* mes
 	{
 		cgltf_write_floatarrayprop(context, "weights", mesh->weights, mesh->weights_count);
 	}
-
+	cgltf_write_extras(context, &mesh->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -406,6 +433,7 @@ static void cgltf_write_buffer_view(cgltf_write_context* context, const cgltf_bu
 	cgltf_write_intprop(context, "byteOffset", view->offset, 0);
 	cgltf_write_intprop(context, "byteStride", view->stride, 0);
 	// NOTE: We skip writing "target" because the spec says its usage can be inferred.
+	cgltf_write_extras(context, &view->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -415,6 +443,7 @@ static void cgltf_write_buffer(cgltf_write_context* context, const cgltf_buffer*
 	cgltf_write_line(context, "{");
 	cgltf_write_strprop(context, "uri", buffer->uri);
 	cgltf_write_intprop(context, "byteLength", buffer->size, -1);
+	cgltf_write_extras(context, &buffer->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -448,6 +477,7 @@ static void cgltf_write_material(cgltf_write_context* context, const cgltf_mater
 		{
 			cgltf_write_floatarrayprop(context, "baseColorFactor", params->base_color_factor, 4);
 		}
+		cgltf_write_extras(context, &params->extras);
 		cgltf_write_line(context, "}");
 	}
 
@@ -486,6 +516,7 @@ static void cgltf_write_material(cgltf_write_context* context, const cgltf_mater
 		cgltf_write_floatarrayprop(context, "emissiveFactor", material->emissive_factor, 3);
 	}
 	cgltf_write_strprop(context, "alphaMode", cgltf_str_from_alpha_mode(material->alpha_mode));
+	cgltf_write_extras(context, &material->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -495,7 +526,8 @@ static void cgltf_write_image(cgltf_write_context* context, const cgltf_image* i
 	cgltf_write_strprop(context, "name", image->name);
 	cgltf_write_strprop(context, "uri", image->uri);
 	CGLTF_WRITE_IDXPROP("bufferView", image->buffer_view, context->data->buffer_views);
-	cgltf_write_strprop(context, "mime_type", image->mime_type);
+	cgltf_write_strprop(context, "mimeType", image->mime_type);
+	cgltf_write_extras(context, &image->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -505,6 +537,7 @@ static void cgltf_write_texture(cgltf_write_context* context, const cgltf_textur
 	cgltf_write_strprop(context, "name", texture->name);
 	CGLTF_WRITE_IDXPROP("source", texture->image, context->data->images);
 	CGLTF_WRITE_IDXPROP("sampler", texture->sampler, context->data->samplers);
+	cgltf_write_extras(context, &texture->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -515,6 +548,7 @@ static void cgltf_write_skin(cgltf_write_context* context, const cgltf_skin* ski
 	CGLTF_WRITE_IDXPROP("inverseBindMatrices", skin->inverse_bind_matrices, context->data->accessors);
 	CGLTF_WRITE_IDXARRPROP("joints", skin->joints_count, skin->joints, context->data->nodes);
 	cgltf_write_strprop(context, "name", skin->name);
+	cgltf_write_extras(context, &skin->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -566,6 +600,7 @@ static void cgltf_write_animation_sampler(cgltf_write_context* context, const cg
 	cgltf_write_interpolation_type(context, "interpolation", animation_sampler->interpolation);
 	CGLTF_WRITE_IDXPROP("input", animation_sampler->input, context->data->accessors);
 	CGLTF_WRITE_IDXPROP("output", animation_sampler->output, context->data->accessors);
+	cgltf_write_extras(context, &animation_sampler->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -577,6 +612,7 @@ static void cgltf_write_animation_channel(cgltf_write_context* context, const cg
 	CGLTF_WRITE_IDXPROP("node", animation_channel->target_node, context->data->nodes);
 	cgltf_write_path_type(context, "path", animation_channel->target_path);
 	cgltf_write_line(context, "}");
+	cgltf_write_extras(context, &animation_channel->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -603,6 +639,7 @@ static void cgltf_write_animation(cgltf_write_context* context, const cgltf_anim
 		}
 		cgltf_write_line(context, "]");
 	}
+	cgltf_write_extras(context, &animation->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -613,6 +650,7 @@ static void cgltf_write_sampler(cgltf_write_context* context, const cgltf_sample
 	cgltf_write_intprop(context, "minFilter", sampler->min_filter, 0);
 	cgltf_write_intprop(context, "wrapS", sampler->wrap_s, 10497);
 	cgltf_write_intprop(context, "wrapT", sampler->wrap_t, 10497);
+	cgltf_write_extras(context, &sampler->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -663,6 +701,7 @@ static void cgltf_write_node(cgltf_write_context* context, const cgltf_node* nod
 		CGLTF_WRITE_IDXPROP("camera", node->camera, context->data->cameras);
 	}
 
+	cgltf_write_extras(context, &node->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -671,6 +710,7 @@ static void cgltf_write_scene(cgltf_write_context* context, const cgltf_scene* s
 	cgltf_write_line(context, "{");
 	cgltf_write_strprop(context, "name", scene->name);
 	CGLTF_WRITE_IDXARRPROP("nodes", scene->nodes_count, scene->nodes, context->data->nodes);
+	cgltf_write_extras(context, &scene->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -700,13 +740,17 @@ static void cgltf_write_accessor(cgltf_write_context* context, const cgltf_acces
 		cgltf_write_intprop(context, "byteOffset", accessor->sparse.indices_byte_offset, 0);
 		CGLTF_WRITE_IDXPROP("bufferView", accessor->sparse.indices_buffer_view, context->data->buffer_views);
 		cgltf_write_intprop(context, "componentType", cgltf_int_from_component_type(accessor->sparse.indices_component_type), 0);
+		cgltf_write_extras(context, &accessor->sparse.indices_extras);
 		cgltf_write_line(context, "}");
 		cgltf_write_line(context, "\"values\": {");
 		cgltf_write_intprop(context, "byteOffset", accessor->sparse.values_byte_offset, 0);
 		CGLTF_WRITE_IDXPROP("bufferView", accessor->sparse.values_buffer_view, context->data->buffer_views);
+		cgltf_write_extras(context, &accessor->sparse.values_extras);
 		cgltf_write_line(context, "}");
+		cgltf_write_extras(context, &accessor->sparse.extras);
 		cgltf_write_line(context, "}");
 	}
+	cgltf_write_extras(context, &accessor->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -722,21 +766,24 @@ static void cgltf_write_camera(cgltf_write_context* context, const cgltf_camera*
 	if (camera->type == cgltf_camera_type_orthographic)
 	{
 		cgltf_write_line(context, "\"orthographic\": {");
-		cgltf_write_floatprop(context, "xmag", camera->orthographic.xmag, -1.0f);
-		cgltf_write_floatprop(context, "ymag", camera->orthographic.ymag, -1.0f);
-		cgltf_write_floatprop(context, "zfar", camera->orthographic.zfar, -1.0f);
-		cgltf_write_floatprop(context, "znear", camera->orthographic.znear, -1.0f);
+		cgltf_write_floatprop(context, "xmag", camera->data.orthographic.xmag, -1.0f);
+		cgltf_write_floatprop(context, "ymag", camera->data.orthographic.ymag, -1.0f);
+		cgltf_write_floatprop(context, "zfar", camera->data.orthographic.zfar, -1.0f);
+		cgltf_write_floatprop(context, "znear", camera->data.orthographic.znear, -1.0f);
+		cgltf_write_extras(context, &camera->data.orthographic.extras);
 		cgltf_write_line(context, "}");
 	}
 	else if (camera->type == cgltf_camera_type_perspective)
 	{
 		cgltf_write_line(context, "\"perspective\": {");
-		cgltf_write_floatprop(context, "aspectRatio", camera->perspective.aspect_ratio, -1.0f);
-		cgltf_write_floatprop(context, "yfov", camera->perspective.yfov, -1.0f);
-		cgltf_write_floatprop(context, "zfar", camera->perspective.zfar, -1.0f);
-		cgltf_write_floatprop(context, "znear", camera->perspective.znear, -1.0f);
+		cgltf_write_floatprop(context, "aspectRatio", camera->data.perspective.aspect_ratio, -1.0f);
+		cgltf_write_floatprop(context, "yfov", camera->data.perspective.yfov, -1.0f);
+		cgltf_write_floatprop(context, "zfar", camera->data.perspective.zfar, -1.0f);
+		cgltf_write_floatprop(context, "znear", camera->data.perspective.znear, -1.0f);
+		cgltf_write_extras(context, &camera->data.perspective.extras);
 		cgltf_write_line(context, "}");
 	}
+	cgltf_write_extras(context, &camera->extras);
 	cgltf_write_line(context, "}");
 }
 
@@ -787,6 +834,7 @@ cgltf_result cgltf_write_file(const cgltf_options* options, const char* path, co
 
 cgltf_size cgltf_write(const cgltf_options* options, char* buffer, cgltf_size size, const cgltf_data* data)
 {
+	(void)options;
 	cgltf_write_context ctx;
 	ctx.buffer = buffer;
 	ctx.buffer_size = size;

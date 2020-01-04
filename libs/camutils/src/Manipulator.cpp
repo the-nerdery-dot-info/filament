@@ -35,7 +35,9 @@ Manipulator<FLOAT>::create(Mode mode, const Manipulator<FLOAT>::Config& props) {
 }
 
 template <typename FLOAT>
-Manipulator<FLOAT>::Manipulator(Mode mode, const Config& props) : mMode(mode), mProps(props) {}
+Manipulator<FLOAT>::Manipulator(Mode mode, const Config& props) : mMode(mode) {
+    setProperties(props);
+}
 
 template <typename FLOAT>
 void Manipulator<FLOAT>::setProperties(const Config& props) {
@@ -71,20 +73,6 @@ void Manipulator<FLOAT>::setViewport(int width, int height) {
     Config props = mProps;
     props.viewport[0] = width;
     props.viewport[1] = height;
-    setProperties(props);
-}
-
-template <typename FLOAT>
-void Manipulator<FLOAT>::setTargetPosition(vec3 pos) {
-    Config props = mProps;
-    props.targetPosition = pos;
-    setProperties(props);
-}
-
-template <typename FLOAT>
-void Manipulator<FLOAT>::setOrbitHomePosition(vec3 pos) {
-    Config props = mProps;
-    props.orbitHomePosition = pos;
     setProperties(props);
 }
 

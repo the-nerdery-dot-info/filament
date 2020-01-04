@@ -88,8 +88,7 @@ public:
      * User-controlled configuration that is never changed by the manipulator.
      *
      * This is a Builder expressed as a POD structure. Many of the fields fall back to reasonable
-     * default values if they are zero-filled. Any properties that are mutable (e.g. viewport) have
-     * corresponding set methods in Manipulator.
+     * default values if they are zero-filled.
      */
     struct Config {
         int viewport[2];             //! Width and height of the viewing area
@@ -129,19 +128,9 @@ public:
     Mode getMode() const { return mMode; }
 
     /**
-     * Sets the viewport dimensions. The manipulator uses this processing grab events and raycasts.
+     * Sets the viewport dimensions. The manipulator uses this to process grab events and raycasts.
      */
     void setViewport(int width, int height);
-
-    /**
-     * Sets the world-space position of interest for the "home" bookmark.
-     */
-    void setTargetPosition(vec3 homePosition);
-
-    /**
-     * Sets the ORBIT eye position in world space for the "home" bookmark.
-     */
-    void setOrbitHomePosition(vec3 pos);
 
     /**
      * Gets the current orthonormal basis; this is usually called once per frame.

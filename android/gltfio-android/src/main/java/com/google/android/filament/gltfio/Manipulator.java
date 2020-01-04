@@ -92,16 +92,6 @@ public class Manipulator {
     void setViewport(int width, int height) {}
 
     /**
-     * Sets the world-space position of interest for the "home" bookmark.
-     */
-    void setTargetPosition(float x, float y, float z) {}
-
-    /**
-     * Sets the ORBIT eye position in world space for the "home" bookmark.
-     */
-    void setOrbitHomePosition(float x, float y, float z) {}
-
-    /**
      * Gets the current orthonormal basis. This is usually called once per frame.
      */
     public void getLookAt(

@@ -804,7 +804,7 @@ template<template<typename T> class BASE, typename T>
 class TMatDebug {
 private:
     friend std::ostream& operator<<(std::ostream& stream, const BASE<T>& m) {
-        return printVector(stream, &m[0][0], m.size());
+        return printVector(stream, &m[0][0], BASE<T>::NUM_COLS * BASE<T>::NUM_ROWS);
     }
 };
 

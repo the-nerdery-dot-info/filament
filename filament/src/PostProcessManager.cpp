@@ -378,7 +378,8 @@ FrameGraphId<FrameGraphTexture> PostProcessManager::quadBlit(FrameGraph& fg,
 }
 
 FrameGraphId <FrameGraphTexture> PostProcessManager::resolve(FrameGraph& fg,
-        const char* outputBufferName, FrameGraphId <FrameGraphTexture> input) noexcept {
+        const char* outputBufferName, uint8_t levels,
+        FrameGraphId<FrameGraphTexture> input) noexcept {
     struct ResolveData {
         FrameGraphId<FrameGraphTexture> output;
         FrameGraphRenderTargetHandle srt;
@@ -386,13 +387,14 @@ FrameGraphId <FrameGraphTexture> PostProcessManager::resolve(FrameGraph& fg,
     };
     auto& ppResolve = fg.addPass<ResolveData>("resolve",
             [&](FrameGraph::Builder& builder, auto& data) {
-                auto inputDesc = fg.getDescriptor(input);
-                inputDesc.samples = 0;
+                auto outputDesc = fg.getDescriptor(input);
+                outputDesc.levels = levels ? levels : 1;
+                outputDesc.samples = 0;
                 input = builder.read(input);
                 FrameGraphRenderTarget::Descriptor d;
                 d.attachments.color = { input };
                 data.srt = builder.createRenderTarget(builder.getName(input), d);
-                data.output = builder.createTexture(outputBufferName, inputDesc);
+                data.output = builder.createTexture(outputBufferName, outputDesc);
                 data.drt = builder.createRenderTarget(data.output);
             },
             [](FrameGraphPassResources const& resources, auto const& data, DriverApi& driver) {

@@ -265,11 +265,11 @@ public:
         return mVisibleShadowCasters;
     }
 
-    uint8_t getClearFlags() const noexcept {
-        uint8_t clearFlags = 0;
-        if (getClearTargetColor())     clearFlags |= (uint8_t)TargetBufferFlags::COLOR;
-        if (getClearTargetDepth())     clearFlags |= (uint8_t)TargetBufferFlags::DEPTH;
-        if (getClearTargetStencil())   clearFlags |= (uint8_t)TargetBufferFlags::STENCIL;
+    TargetBufferFlags getClearFlags() const noexcept {
+        TargetBufferFlags clearFlags = {};
+        if (getClearTargetColor())     clearFlags |= TargetBufferFlags::COLOR;
+        if (getClearTargetDepth())     clearFlags |= TargetBufferFlags::DEPTH;
+        if (getClearTargetStencil())   clearFlags |= TargetBufferFlags::STENCIL;
         return clearFlags;
     }
 

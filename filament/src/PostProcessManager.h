@@ -62,7 +62,8 @@ public:
             backend::TextureFormat outFormat) noexcept;
 
     FrameGraphId <FrameGraphTexture> resolve(FrameGraph& fg,
-            const char* outputBufferName, FrameGraphId <FrameGraphTexture> input) noexcept;
+            const char* outputBufferName, uint8_t levels,
+            FrameGraphId <FrameGraphTexture> input) noexcept;
 
     FrameGraphId<FrameGraphTexture> ssao(FrameGraph& fg, details::RenderPass& pass,
             filament::Viewport const& svp,

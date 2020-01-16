@@ -123,6 +123,19 @@ VertexBuffer* VertexBuffer::Builder::build(Engine& engine) {
         return nullptr;
     }
 
+    auto const& declaredAttributes = mImpl->mDeclaredAttributes;
+    auto const& attributes = mImpl->mAttributes;
+    utils::bitset32 mAttributedBuffers;
+    for (size_t j = 0; j < MAX_VERTEX_ATTRIBUTE_COUNT; ++j) {
+        if (declaredAttributes[j]) {
+            mAttributedBuffers.set(attributes[j].buffer);
+        }
+    }
+    if (!ASSERT_PRECONDITION_NON_FATAL(mAttributedBuffers.count() == mImpl->mBufferCount,
+            "At least one buffer slot was never assigned to an attribute.")) {
+        return nullptr;
+    }
+
     return upcast(engine).createVertexBuffer(*this);
 }
 

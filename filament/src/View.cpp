@@ -646,8 +646,18 @@ void FView::prepareSSAO(Handle<HwTexture> ssao) const noexcept {
     });
 }
 
+void FView::prepareSSR(Handle<HwTexture> ssr) const noexcept {
+    mPerViewSb.setSampler(PerViewSib::SSR, ssr, {
+            .filterMag = SamplerMagFilter::LINEAR
+    });
+}
+
 void FView::cleanupSSAO() const noexcept {
     mPerViewSb.setSampler(PerViewSib::SSAO, {}, {});
+}
+
+void FView::cleanupSSR() const noexcept {
+    mPerViewSb.setSampler(PerViewSib::SSR, {}, {});
 }
 
 void FView::froxelize(FEngine& engine) const noexcept {

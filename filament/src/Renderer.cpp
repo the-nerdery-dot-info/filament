@@ -366,6 +366,7 @@ void FRenderer::renderJob(ArenaScope& arena, FView& view) {
     fg.addTrivialSideEffectPass("Finish Color Passes", [&view]() {
         // Unbind SSAO sampler, b/c the FrameGraph will delete the texture at the end of the pass.
         view.cleanupSSAO();
+        view.cleanupSSR();
     });
 
     // --------------------------------------------------------------------------------------------
@@ -452,7 +453,21 @@ FrameGraphId<FrameGraphTexture> FRenderer::refractionPass(FrameGraph& fg,
         // buffer, it'll also resolve it.
         input = ppm.resolve(fg, "Refraction Buffer", 3, input);
         // TODO: create mip-levels
-        blackboard["ssr"] = input;
+
+
+        struct PrepareSSRData {
+            FrameGraphId<FrameGraphTexture> ssr;
+        };
+        fg.addPass<PrepareSSRData>("Prepare SSR",
+                [&](FrameGraph::Builder& builder, auto& data) {
+                    data.ssr = builder.sample(input);
+                    blackboard["ssr"] = data.ssr;
+                    builder.sideEffect();
+                },
+                [&view](FrameGraphPassResources const& resources, auto const& data, DriverApi& driver) {
+                    view.prepareSSR(resources.getTexture(data.ssr));
+                    view.commitUniforms(driver);
+                });
 
         // set-up the refraction pass
         RenderPass translucentPass(pass);
@@ -484,6 +499,7 @@ FrameGraphId <FrameGraphTexture> FRenderer::colorPass(FrameGraph& fg, const char
         FrameGraphId<FrameGraphTexture> color;
         FrameGraphId<FrameGraphTexture> depth;
         FrameGraphId<FrameGraphTexture> ssao;
+        FrameGraphId<FrameGraphTexture> ssr;
         FrameGraphRenderTargetHandle rt{};
     };
 
@@ -492,9 +508,14 @@ FrameGraphId <FrameGraphTexture> FRenderer::colorPass(FrameGraph& fg, const char
 
                 Blackboard& blackboard = fg.getBlackboard();
 
+                data.ssr  = blackboard.get<FrameGraphTexture>("ssr");
                 data.ssao = blackboard.get<FrameGraphTexture>("ssao");
                 data.color = blackboard.get<FrameGraphTexture>("color");
                 data.depth = blackboard.get<FrameGraphTexture>("depth");
+
+                if (data.ssr.isValid()) {
+                    data.ssr = builder.sample(data.ssr);
+                }
 
                 if (data.ssao.isValid()) {
                     data.ssao = builder.sample(data.ssao);
@@ -527,7 +548,6 @@ FrameGraphId <FrameGraphTexture> FRenderer::colorPass(FrameGraph& fg, const char
                     (FrameGraphPassResources const& resources,
                             ColorPassData const& data, DriverApi& driver) {
                 auto out = resources.getRenderTarget(data.rt);
-
                 out.params.clearColor = clearColor;
 
                 pass.execute(resources.getPassName(), out.target, out.params);

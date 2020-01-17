@@ -648,7 +648,8 @@ void FView::prepareSSAO(Handle<HwTexture> ssao) const noexcept {
 
 void FView::prepareSSR(Handle<HwTexture> ssr) const noexcept {
     mPerViewSb.setSampler(PerViewSib::SSR, ssr, {
-            .filterMag = SamplerMagFilter::LINEAR
+            .filterMag = SamplerMagFilter::LINEAR,
+            .filterMin = SamplerMinFilter::LINEAR_MIPMAP_LINEAR
     });
 }
 

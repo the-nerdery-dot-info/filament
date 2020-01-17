@@ -405,7 +405,7 @@ void FRenderer::renderJob(ArenaScope& arena, FView& view) {
     fg.present(input);
     fg.moveResource(fgViewRenderTarget, input);
     fg.compile();
-    //fg.export_graphviz(slog.d);
+    fg.export_graphviz(slog.d);
     fg.execute(engine, driver);
 
     recordHighWatermark(pass.getCommandsHighWatermark());
@@ -451,7 +451,22 @@ FrameGraphId<FrameGraphTexture> FRenderer::refractionPass(FrameGraph& fg,
 
         // Copy the color buffer into a texture, we use resolve() because in case of a multi-sample
         // buffer, it'll also resolve it.
-        input = ppm.resolve(fg, "Refraction Buffer", 3, input);
+        input = ppm.resolve(fg, "Refraction Buffer", 5, input);
+
+        // N = 6q-1
+        // 2K-1 - 6q-1
+        // K = 3q
+        // a = 1/2qq
+        // ==> a = 1/(2KK/9) = 9/2KK = 4.5/KK
+        // with K=15, alpha-min = 0.02
+
+        // note: alpha must depend on the resolution
+        input = ppm.gaussianBlurPass(fg, input, 0, 1, 0.02); // effective 0.02
+        input = ppm.gaussianBlurPass(fg, input, 1, 2, 0.02); // effective 0.005
+        input = ppm.gaussianBlurPass(fg, input, 2, 3, 0.02); // effective 0.00125
+        input = ppm.gaussianBlurPass(fg, input, 3, 4, 0.02); // effective 0.0003125
+
+
         // TODO: create mip-levels
 
 
@@ -490,7 +505,7 @@ FrameGraphId<FrameGraphTexture> FRenderer::refractionPass(FrameGraph& fg,
     return output;
 }
 
-FrameGraphId <FrameGraphTexture> FRenderer::colorPass(FrameGraph& fg, const char* name,
+FrameGraphId<FrameGraphTexture> FRenderer::colorPass(FrameGraph& fg, const char* name,
         FrameGraphTexture::Descriptor const& colorBufferDesc, ColorPassConfig const& config,
         RenderPass const& pass, backend::TargetBufferFlags clearFlags,
         math::float4 clearColor) noexcept {

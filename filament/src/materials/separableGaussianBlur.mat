@@ -12,7 +12,7 @@ material {
             precision: high
         },
         {
-            type : int2,
+            type : float2,
             name : axis
         },
         {
@@ -38,37 +38,36 @@ material {
 
 vertex {
     void postProcessVertex(inout PostProcessVertexInputs postProcess) {
-        // in the fragment shader, this is interpolated to pixel centers, but since we use
-        // texel-fetch, it's not what we want. Convert from screen uv to texture uv.
-        vec2 size = textureSize(materialParams_source, materialParams.level);
-        //postProcess.vertex.xy = postProcess.normalizedUV * (size - 1.0 / size);
-        postProcess.vertex.xy = postProcess.normalizedUV * size;
+        postProcess.vertex.xy = postProcess.normalizedUV * materialParams.resolution.xy;
     }
 }
 
 fragment {
-    ivec2 clampToEdge(const sampler2D s, ivec2 uv) {
-        ivec2 size = textureSize(s, materialParams.level);
-        return clamp(uv, ivec2(0), size - ivec2(1));
+    vec2 clampToEdge(const sampler2D s, vec2 uv) {
+        vec2 size = textureSize(s, materialParams.level);
+        return clamp(uv, vec2(0), size - vec2(1));
     }
 
-    void tap(inout vec3 sum, inout float totalWeight, float weight, ivec2 position) {
+    void tap(inout vec3 sum, inout float totalWeight, float weight, vec2 position) {
         position = clampToEdge(materialParams_source, position);
-        vec3 texel = texelFetch(materialParams_source, position, materialParams.level).rgb;
+        vec3 texel = texelFetch(materialParams_source, ivec2(position), materialParams.level).rgb;
         sum += texel * weight;
         totalWeight += weight;
     }
 
     void postProcess(inout PostProcessInputs postProcess) {
-        highp ivec2 uv = ivec2(floor(variable_vertex.xy));
+        // in the fragment shader, this is interpolated to pixel centers, but since we use
+        // texel-fetch, it's not what we want. Convert from screen uv to texture uv.
+        vec2 size = textureSize(materialParams_source, materialParams.level);
+        vec2 uv = floor(variable_vertex.xy) * (size * materialParams.resolution.zw);
 
         // we handle the center pixel separately
         float totalWeight = materialParams.samples[0];
-        vec3 sum = texelFetch(materialParams_source, uv, materialParams.level).rgb * totalWeight;
+        vec3 sum = texelFetch(materialParams_source, ivec2(uv), materialParams.level).rgb * totalWeight;
 
-        for (int i = 1; i < materialParams.count; i++) {
+        vec2 offset = vec2(0);
+        for (int i = 1; i < materialParams.count; i++, offset += materialParams.axis) {
             float weight = materialParams.samples[i];
-            ivec2 offset = i * materialParams.axis;
             tap(sum, totalWeight, weight, uv + offset);
             tap(sum, totalWeight, weight, uv - offset);
         }

@@ -707,12 +707,12 @@ FrameGraphId<FrameGraphTexture> PostProcessManager::gaussianBlurPass(FrameGraph&
         FrameGraphRenderTargetHandle rt;
     };
 
-    int2 axis = {1, 0};
+    float2 axis = {1, 0};
 
     auto& horizontalPass = fg.addPass<BlurPassData>("Gaussian Blur Pass (horizontal)",
             [&](FrameGraph::Builder& builder, BlurPassData& data) {
+                auto desc = builder.getDescriptor(input);
                 data.input = builder.sample(input);
-                auto desc = builder.getDescriptor(data.input);
                 // width of the destination level (b/c we're blurring horizontally)
                 desc.width = FTexture::valueForLevel(dstLevel, desc.width);
                 // height of the source level (b/c it's not blurred in this pass)
@@ -764,7 +764,8 @@ FrameGraphId<FrameGraphTexture> PostProcessManager::gaussianBlurPass(FrameGraph&
     auto& verticalPass = fg.addPass<BlurPassData>("Gaussian Blur Pass (vertical)",
             [&](FrameGraph::Builder& builder, BlurPassData& data) {
                 data.input = builder.sample(input);
-                data.blurred = builder.write(blurred);
+                data.blurred = blurred;
+                data.blurred = builder.write(data.blurred);
                 data.rt = builder.createRenderTarget("Blurred target",{
                         .attachments = { {data.blurred, dstLevel}, {}}
                 }, TargetBufferFlags::NONE);
@@ -795,6 +796,10 @@ FrameGraphId<FrameGraphTexture> PostProcessManager::gaussianBlurPass(FrameGraph&
 
                 auto blurred = resources.getRenderTarget(data.rt);
                 driver.beginRenderPass(blurred.target, blurred.params);
+
+                assert(width == blurred.params.viewport.width);
+                assert(height == blurred.params.viewport.height);
+
                 driver.draw(pipeline, fullScreenRenderPrimitive);
                 driver.endRenderPass();
     });
